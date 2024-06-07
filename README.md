@@ -26,5 +26,5 @@ CHANNEL_ID=@FridayNewsBotik  # Ссылка на канал в виде @
 CHANNEL_URL=https://t.me/FridayNewsBotik  # Ссылка на канал в виде URL
 ```
 
-Если у вас возникли вопросы, свяжитесь со мной по **[ссылке](https://t.me/bakumii)**.
--
+
+
