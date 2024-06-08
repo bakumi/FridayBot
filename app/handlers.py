@@ -5,6 +5,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKe
 from config import CHANNEL_ID
 import app.keyboards as kb
 import app.admin as admin
+from app.admin import AdminProtect
 
 
 
@@ -50,7 +51,7 @@ async def send_saved_post(message: Message, bot):
 
 
 
-@router.message(F.text.lower() == 'посмотреть пост')
+@router.message(AdminProtect(), F.text.lower() == 'посмотреть пост')
 async def view_post(message: Message, bot):
     data = admin.get_saved_post_data()
     if data:

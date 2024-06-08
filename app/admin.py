@@ -1,7 +1,7 @@
 from aiogram import Router, F
 from datetime import datetime, timedelta
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import StateFilter, Command
+from aiogram.filters import StateFilter, Command, Filter
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.database import AddInfo, admin_db, save_post_data, get_saved_post_data, user_db
@@ -14,12 +14,21 @@ admin = Router()
 
 
 
+#################### admin protect ####################
+
+class AdminProtect(Filter):
+    async def __call__(self, message: Message):
+        return message.from_user.id == ADMIN_ID
+
+#################### admin protect ####################
+
+
+
 #################### open admin menu ####################
 
-@admin.message(Command('admin'))
+@admin.message(AdminProtect(), Command('admin'))
 async def adminPanel(message: Message):
-    if message.from_user.id == ADMIN_ID:
-        await message.answer(f'Вы вошли в админ панель.\n\nПользователь: {message.from_user.full_name}\nId: {message.from_user.id}\nUsername: @{message.from_user.username}', reply_markup=await kb.admin_menu())
+    await message.answer(f'Вы вошли в админ панель.\n\nПользователь: {message.from_user.full_name}\nId: {message.from_user.id}\nUsername: @{message.from_user.username}', reply_markup=await kb.admin_menu())
 
 #################### open admin menu ####################
 
@@ -27,7 +36,7 @@ async def adminPanel(message: Message):
 
 #################### exit from admin menu ####################
 
-@admin.message(F.text.lower() == 'выход')
+@admin.message(AdminProtect(), F.text.lower() == 'выход')
 async def exit_pan(message: Message, bot):
     await bot.send_message(chat_id=message.from_user.id, text="Админ панель закрыта.", reply_markup=ReplyKeyboardRemove())
 
@@ -37,7 +46,7 @@ async def exit_pan(message: Message, bot):
 
 #################### create post ####################
 
-@admin.message(StateFilter(None), F.text.lower() == 'добавить')
+@admin.message(AdminProtect(), StateFilter(None), F.text.lower() == 'добавить')
 async def add(message: Message, state: FSMContext):
     await state.set_state(AddInfo.new_post)
     await message.answer(text='Загрузите фотографию', reply_markup=ReplyKeyboardRemove())
@@ -45,7 +54,7 @@ async def add(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.photo)
+@admin.message(AdminProtect(), AddInfo.photo)
 async def add_photo(message: Message, state: FSMContext):
     if not message.photo:
         return await message.answer(text='Загрузить можно только фотографию.')
@@ -55,7 +64,7 @@ async def add_photo(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.description, F.text)
+@admin.message(AdminProtect(), AddInfo.description, F.text)
 async def add_description(message: Message, state: FSMContext):
     await state.update_data(description=message.text)
     await message.answer(text="Добавьте символ")
@@ -63,7 +72,7 @@ async def add_description(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.symbol, F.text)
+@admin.message(AdminProtect(), AddInfo.symbol, F.text)
 async def add_symbol(message: Message, state: FSMContext):
     await state.update_data(symbol=message.text)
     await message.answer(text="Добавьте название первой кнопки")
@@ -71,7 +80,7 @@ async def add_symbol(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.button_1, F.text)
+@admin.message(AdminProtect(), AddInfo.button_1, F.text)
 async def add_button_1(message: Message, state: FSMContext):
     await state.update_data(button_1=message.text)
     await message.answer(text="Добавьте название второй кнопки")
@@ -79,7 +88,7 @@ async def add_button_1(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.button_2, F.text)
+@admin.message(AdminProtect(), AddInfo.button_2, F.text)
 async def add_button_2(message: Message, state: FSMContext):
     await state.update_data(button_2=message.text)
     await message.answer(text="Добавьте название третьей кнопки")
@@ -87,7 +96,7 @@ async def add_button_2(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.button_3, F.text)
+@admin.message(AdminProtect(), AddInfo.button_3, F.text)
 async def add_button_3(message: Message, state: FSMContext):
     await state.update_data(button_3=message.text)
     await message.answer(text="Какую кнопку сделать верным ответом?", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
@@ -98,7 +107,7 @@ async def add_button_3(message: Message, state: FSMContext):
 
 
 
-@admin.callback_query(F.data.startswith('correct_button_'))
+@admin.callback_query(AdminProtect(), F.data.startswith('correct_button_'))
 async def set_correct_button(callback: CallbackQuery, state: FSMContext):
     correct_button = int(callback.data.split('_')[-1])
     await state.update_data(correct_button=correct_button)
@@ -113,7 +122,7 @@ async def set_correct_button(callback: CallbackQuery, state: FSMContext):
 
 #################### edit post ####################
 
-@admin.callback_query(F.data == 'edit')
+@admin.callback_query(AdminProtect(), F.data == 'edit')
 async def edit_options(callback: CallbackQuery):
     edit_markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Изменить фотографию", callback_data='edit_photo'), 
@@ -128,7 +137,7 @@ async def edit_options(callback: CallbackQuery):
 
 
 
-@admin.callback_query(F.data == 'back_to_main')
+@admin.callback_query(AdminProtect(), F.data == 'back_to_main')
 async def back_to_main(callback: CallbackQuery):
     main_markup = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Изменить", callback_data='edit')],
@@ -138,7 +147,7 @@ async def back_to_main(callback: CallbackQuery):
 
 
 
-@admin.callback_query(F.data.startswith('edit_'))
+@admin.callback_query(AdminProtect(), F.data.startswith('edit_'))
 async def initiate_edit(callback: CallbackQuery, state: FSMContext):
     data_field = callback.data.split('_', 1)[1]
     await state.set_state(getattr(AddInfo, f"edit_{data_field}"))
@@ -146,7 +155,7 @@ async def initiate_edit(callback: CallbackQuery, state: FSMContext):
 
 
 
-@admin.message(AddInfo.edit_photo)
+@admin.message(AdminProtect(), AddInfo.edit_photo)
 async def process_new_photo(message: Message, state: FSMContext):
     if not message.photo:
         return await message.answer(text='Загрузить можно только фотографию.')
@@ -157,7 +166,7 @@ async def process_new_photo(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.edit_description, F.text)
+@admin.message(AdminProtect(), AddInfo.edit_description, F.text)
 async def process_new_description(message: Message, state: FSMContext):
     await state.update_data(description=message.text)
     admin_db.update_info('description', message.text)
@@ -166,7 +175,7 @@ async def process_new_description(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.edit_symbol, F.text)
+@admin.message(AdminProtect(), AddInfo.edit_symbol, F.text)
 async def process_new_symbol(message: Message, state: FSMContext):
     await state.update_data(symbol=message.text)
     admin_db.update_info('symbol', message.text)
@@ -175,7 +184,7 @@ async def process_new_symbol(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.edit_button_1, F.text)
+@admin.message(AdminProtect(), AddInfo.edit_button_1, F.text)
 async def process_new_button_1(message: Message, state: FSMContext):
     await state.update_data(button_1=message.text)
     admin_db.update_info('button_1', message.text)
@@ -184,7 +193,7 @@ async def process_new_button_1(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.edit_button_2, F.text)
+@admin.message(AdminProtect(), AddInfo.edit_button_2, F.text)
 async def process_new_button_2(message: Message, state: FSMContext):
     await state.update_data(button_2=message.text)
     admin_db.update_info('button_2', message.text)
@@ -193,7 +202,7 @@ async def process_new_button_2(message: Message, state: FSMContext):
 
 
 
-@admin.message(AddInfo.edit_button_3, F.text)
+@admin.message(AdminProtect(), AddInfo.edit_button_3, F.text)
 async def process_new_button_3(message: Message, state: FSMContext):
     await state.update_data(button_3=message.text)
     admin_db.update_info('button_3', message.text)
@@ -264,7 +273,7 @@ async def send_post_preview(message: Message, data):
 
 
 
-@admin.callback_query(F.data == 'send')
+@admin.callback_query(AdminProtect(), F.data == 'send')
 async def send_confirmation(callback: CallbackQuery):
     confirmation_markup = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -276,7 +285,7 @@ async def send_confirmation(callback: CallbackQuery):
 
 
 
-@admin.callback_query(F.data == 'confirm_send_no')
+@admin.callback_query(AdminProtect(), F.data == 'confirm_send_no')
 async def cancel_post(callback_query: CallbackQuery, state: FSMContext):
     await callback_query.message.delete()
 
@@ -292,7 +301,7 @@ async def send_post_to_admin(chat_id, data, bot):
 
 
 
-@admin.callback_query(F.data == 'confirm_send_yes')
+@admin.callback_query(AdminProtect(), F.data == 'confirm_send_yes')
 async def confirm_send(callback: CallbackQuery, bot):
     data = admin_db.get_info()
     await send_post_to_admin(callback.message.chat.id, data, bot)
