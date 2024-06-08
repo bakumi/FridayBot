@@ -314,7 +314,7 @@ async def confirm_send(callback: CallbackQuery, bot):
     data = admin_db.get_info()
     await send_post_to_admin(callback.message.chat.id, data, bot)
     save_post_data(data)
-    await callback.message.answer("Пост отправлен!")
+    await callback.message.answer("Пост опубликован!")
 
 
 
