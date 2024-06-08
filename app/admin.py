@@ -38,7 +38,7 @@ async def adminPanel(message: Message):
 
 @admin.message(AdminProtect(), F.text.lower() == 'выход')
 async def exit_pan(message: Message, bot):
-    await bot.send_message(chat_id=message.from_user.id, text="Админ панель закрыта.", reply_markup=ReplyKeyboardRemove())
+    await bot.send_message(chat_id=message.from_user.id, text="Админ панель закрыта", reply_markup=ReplyKeyboardRemove())
 
 #################### exit from admin menu ####################
 
@@ -47,7 +47,7 @@ async def exit_pan(message: Message, bot):
 #################### create post ####################
 
 @admin.message(AdminProtect(), StateFilter(None), F.text.lower() == 'добавить')
-async def add(message: Message, state: FSMContext):
+async def add_photo(message: Message, state: FSMContext):
     await state.set_state(AddInfo.new_post)
     await message.answer(text='Загрузите фотографию', reply_markup=ReplyKeyboardRemove())
     await state.set_state(AddInfo.photo)
@@ -55,9 +55,9 @@ async def add(message: Message, state: FSMContext):
 
 
 @admin.message(AdminProtect(), AddInfo.photo)
-async def add_photo(message: Message, state: FSMContext):
+async def add_description(message: Message, state: FSMContext):
     if not message.photo:
-        return await message.answer(text='Загрузить можно только фотографию.')
+        return await message.answer(text='Загрузить можно только фотографию')
     await state.update_data(photo=message.photo[-1].file_id)
     await message.answer(text="Добавьте описание поста")
     await state.set_state(AddInfo.description)
@@ -65,7 +65,7 @@ async def add_photo(message: Message, state: FSMContext):
 
 
 @admin.message(AdminProtect(), AddInfo.description, F.text)
-async def add_description(message: Message, state: FSMContext):
+async def add_symbol(message: Message, state: FSMContext):
     await state.update_data(description=message.text)
     await message.answer(text="Добавьте символ")
     await state.set_state(AddInfo.symbol)
@@ -73,7 +73,7 @@ async def add_description(message: Message, state: FSMContext):
 
 
 @admin.message(AdminProtect(), AddInfo.symbol, F.text)
-async def add_symbol(message: Message, state: FSMContext):
+async def add_button_1(message: Message, state: FSMContext):
     await state.update_data(symbol=message.text)
     await message.answer(text="Добавьте название первой кнопки")
     await state.set_state(AddInfo.button_1)
@@ -81,7 +81,7 @@ async def add_symbol(message: Message, state: FSMContext):
 
 
 @admin.message(AdminProtect(), AddInfo.button_1, F.text)
-async def add_button_1(message: Message, state: FSMContext):
+async def add_button_2(message: Message, state: FSMContext):
     await state.update_data(button_1=message.text)
     await message.answer(text="Добавьте название второй кнопки")
     await state.set_state(AddInfo.button_2)
@@ -89,7 +89,7 @@ async def add_button_1(message: Message, state: FSMContext):
 
 
 @admin.message(AdminProtect(), AddInfo.button_2, F.text)
-async def add_button_2(message: Message, state: FSMContext):
+async def add_button_3(message: Message, state: FSMContext):
     await state.update_data(button_2=message.text)
     await message.answer(text="Добавьте название третьей кнопки")
     await state.set_state(AddInfo.button_3)
@@ -97,13 +97,21 @@ async def add_button_2(message: Message, state: FSMContext):
 
 
 @admin.message(AdminProtect(), AddInfo.button_3, F.text)
-async def add_button_3(message: Message, state: FSMContext):
+async def set_correct_button(message: Message, state: FSMContext):
     await state.update_data(button_3=message.text)
-    await message.answer(text="Какую кнопку сделать верным ответом?", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text='1', callback_data='correct_button_1')],
-        [InlineKeyboardButton(text='2', callback_data='correct_button_2')],
-        [InlineKeyboardButton(text='3', callback_data='correct_button_3')]
-    ]))
+    
+    data = await state.get_data()
+    button_1 = data.get('button_1', '1')
+    button_2 = data.get('button_2', '2')
+    button_3 = data.get('button_3', '3')
+    
+    inline_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=button_1, callback_data='correct_button_1')],
+        [InlineKeyboardButton(text=button_2, callback_data='correct_button_2')],
+        [InlineKeyboardButton(text=button_3, callback_data='correct_button_3')]
+    ])
+    
+    await message.answer(text="Какую кнопку сделать верным ответом?", reply_markup=inline_kb)
 
 
 
@@ -151,14 +159,14 @@ async def back_to_main(callback: CallbackQuery):
 async def initiate_edit(callback: CallbackQuery, state: FSMContext):
     data_field = callback.data.split('_', 1)[1]
     await state.set_state(getattr(AddInfo, f"edit_{data_field}"))
-    await callback.message.answer(f"Отправьте новое значение для {data_field}")
+    await callback.message.answer(f"Отправьте новое значение")
 
 
 
 @admin.message(AdminProtect(), AddInfo.edit_photo)
 async def process_new_photo(message: Message, state: FSMContext):
     if not message.photo:
-        return await message.answer(text='Загрузить можно только фотографию.')
+        return await message.answer(text='Загрузить можно только фотографию')
     await state.update_data(photo=message.photo[-1].file_id)
     admin_db.update_info('photo', message.photo[-1].file_id)
     await update_message(message, state, "Фотография изменена")
@@ -269,7 +277,7 @@ async def send_post_preview(message: Message, data):
         caption=f"Описание: {data.get('description')}\nСимвол: {data.get('symbol')}\nКнопки: {button_1_text}, {button_2_text}, {button_3_text}", 
         reply_markup=inline_markup
     )
-    await message.answer(text="Выберите действие:", reply_markup=main_markup)
+    await message.answer(text="Выберите действие", reply_markup=main_markup)
 
 
 
@@ -306,7 +314,7 @@ async def confirm_send(callback: CallbackQuery, bot):
     data = admin_db.get_info()
     await send_post_to_admin(callback.message.chat.id, data, bot)
     save_post_data(data)
-    await callback.message.answer("Пост отправлен.")
+    await callback.message.answer("Пост отправлен!")
 
 
 
@@ -335,7 +343,7 @@ async def handle_vote(callback: CallbackQuery):
     if user_id in last_vote_times:
         last_vote_time = last_vote_times[user_id]
         if (datetime.now() - last_vote_time) < timedelta(minutes=1):
-            await callback.answer("Вы уже голосовали в течение последней минуты. Пожалуйста, подождите.", show_alert=True)
+            await callback.answer("Голосовать можно раз в минуту.", show_alert=True)
             return
 
     data = admin_db.get_info()
@@ -345,11 +353,11 @@ async def handle_vote(callback: CallbackQuery):
     if selected_button == data[6]:  # data[6] - кнопка верного ответа
         if data[2] in user.username:  # data[2] - символ в нике
             user_db.add_user(user.id, user.username, selected_button)
-            await callback.answer("Вы правильно ответили и были добавлены в базу данных!")
+            await callback.answer("Вы правильно ответили!")
         else:
             await callback.answer("Вы правильно ответили, но ваш никнейм не содержит требуемый символ.")
     else:
-        await callback.answer("Ответ неверный.")
+        await callback.answer("Вы ответили неверно.")
     
     last_vote_times[user_id] = datetime.now()
 
