@@ -1,9 +1,9 @@
 import sqlite3
 from aiogram.fsm.state import State, StatesGroup
+from app.abstract_db import AbstractDB
 
 
-
-#################### admin database ####################
+#################### sqlite3 admin database ####################
 
 class AddInfo(StatesGroup):
     new_post = State()
@@ -21,7 +21,7 @@ class AddInfo(StatesGroup):
     edit_symbol = State()
         
 
-class Admindb:
+class SQLite3_Admindb(AbstractDB):
     def __init__(self) -> None:
         self.dp = sqlite3.connect("admin_db.db")
         self.cur = self.dp.cursor()
@@ -40,7 +40,7 @@ class Admindb:
             "button_1": "TEXT",
             "button_2": "TEXT",
             "button_3": "TEXT",
-            "correct_button": "INTEGER"
+            "correct_button": "INTEGER DEFAULT 0"
         }
         for column, column_type in columns_to_add.items():
             if column not in existing_columns:
@@ -64,7 +64,7 @@ class Admindb:
         self.dp.commit()
 
 
-admin_db = Admindb()
+admin_db = SQLite3_Admindb()
 
 saved_post_data = None
 
@@ -76,13 +76,13 @@ def save_post_data(data):
 def get_saved_post_data():
     return admin_db.get_info()
 
-#################### admin database ####################
+#################### sqlite3 admin database ####################
 
 
 
-#################### users database ####################
+#################### sqlite3 users database ####################
 
-class Userdb:
+class SQLite3_Userdb(AbstractDB):
     def __init__(self) -> None:
         self.dp = sqlite3.connect("user_db.db")
         self.cur = self.dp.cursor()
@@ -93,20 +93,46 @@ class Userdb:
         self.dp.commit()
         self.add_missing_columns()
 
-
     def add_missing_columns(self):
         existing_columns = [row[1] for row in self.cur.execute("PRAGMA table_info(user_table)")]
         if 'correct_button' not in existing_columns:
             self.cur.execute("ALTER TABLE user_table ADD COLUMN correct_button INTEGER")
         self.dp.commit()
 
-
-    def add_user(self, user_id, username, correct_button):
+    def add_info(self, user_id, username, correct_button):
         self.cur.execute("""INSERT INTO user_table (user_id, username, correct_button)
                             VALUES (?, ?, ?)""", (user_id, username, correct_button))
         self.dp.commit()
 
+    def get_info(self):
+        self.cur.execute("""SELECT user_id, username, correct_button FROM user_table ORDER BY id DESC LIMIT 1""")
+        return self.cur.fetchone()
 
-user_db = Userdb()
+    def update_info(self, column, value):
+        self.cur.execute(f"UPDATE user_table SET {column} = ? WHERE id = (SELECT MAX(id) FROM user_table)", (value,))
+        self.dp.commit()
 
-#################### users database ####################
+
+user_db = SQLite3_Userdb()
+
+
+#################### sqlite3 users database ####################
+
+
+
+
+#################### Пример ####################
+
+class MySQL_Admindb(AbstractDB):
+    pass
+
+# admin_db = MySQL_Admindb() # перейти БД (пример)
+
+
+
+class MySQ_Userdb(AbstractDB):
+    pass
+
+# user_db = MySQL_Userdb() # поменять БД (пример)
+
+#################### Пример ####################

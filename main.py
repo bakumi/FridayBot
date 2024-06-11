@@ -3,8 +3,8 @@ import logging
 from aiogram import Bot, Dispatcher
 
 from app.handlers import router
-from config import TOKEN
 from app.admin import admin
+from config import TOKEN
 
 
 

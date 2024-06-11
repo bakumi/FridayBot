@@ -1,10 +1,10 @@
 from aiogram import Router, F
 from datetime import datetime, timedelta
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import StateFilter, Command, Filter
+from aiogram.filters import StateFilter, Command, BaseFilter
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.database import AddInfo, admin_db, save_post_data, get_saved_post_data, user_db
+from app.database import AddInfo, admin_db, user_db, save_post_data, get_saved_post_data
 from config import ADMIN_ID
 import app.keyboards as kb
 
@@ -16,9 +16,9 @@ admin = Router()
 
 #################### admin protect ####################
 
-class AdminProtect(Filter):
+class AdminProtect(BaseFilter):
     async def __call__(self, message: Message):
-        return message.from_user.id == ADMIN_ID
+        return message.from_user.id in ADMIN_ID
 
 #################### admin protect ####################
 
@@ -27,7 +27,7 @@ class AdminProtect(Filter):
 #################### open admin menu ####################
 
 @admin.message(AdminProtect(), Command('admin'))
-async def adminPanel(message: Message):
+async def admin_panel(message: Message):
     await message.answer(f'Вы вошли в админ панель.\n\nПользователь: {message.from_user.full_name}\nId: {message.from_user.id}\nUsername: @{message.from_user.username}', reply_markup=await kb.admin_menu())
 
 #################### open admin menu ####################
@@ -37,7 +37,7 @@ async def adminPanel(message: Message):
 #################### exit from admin menu ####################
 
 @admin.message(AdminProtect(), F.text.lower() == 'выход')
-async def exit_pan(message: Message, bot):
+async def exit_admin_panel(message: Message, bot):
     await bot.send_message(chat_id=message.from_user.id, text="Админ панель закрыта", reply_markup=ReplyKeyboardRemove())
 
 #################### exit from admin menu ####################
@@ -108,7 +108,8 @@ async def set_correct_button(message: Message, state: FSMContext):
     inline_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=button_1, callback_data='correct_button_1')],
         [InlineKeyboardButton(text=button_2, callback_data='correct_button_2')],
-        [InlineKeyboardButton(text=button_3, callback_data='correct_button_3')]
+        [InlineKeyboardButton(text=button_3, callback_data='correct_button_3')],
+        [InlineKeyboardButton(text="Без верного ответа", callback_data='correct_button_none')]
     ])
     
     await message.answer(text="Какую кнопку сделать верным ответом?", reply_markup=inline_kb)
@@ -117,12 +118,16 @@ async def set_correct_button(message: Message, state: FSMContext):
 
 @admin.callback_query(AdminProtect(), F.data.startswith('correct_button_'))
 async def set_correct_button(callback: CallbackQuery, state: FSMContext):
-    correct_button = int(callback.data.split('_')[-1])
+    if callback.data == 'correct_button_none':
+        correct_button = -0
+    else:
+        correct_button = int(callback.data.split('_')[-1])
+    
     await state.update_data(correct_button=correct_button)
     data = await state.get_data()
     admin_db.add_info(data['photo'], data['description'], data['symbol'], data['button_1'], data['button_2'], data['button_3'], data['correct_button'])
     await send_post_preview(callback.message, data)
-    await state.clear()  
+    await state.clear()
 
 #################### create post ####################
 
@@ -350,14 +355,14 @@ async def handle_vote(callback: CallbackQuery):
     user = callback.from_user
     selected_button = int(callback.data.split('_')[-1])
 
-    if selected_button == data[6]:  # data[6] - кнопка верного ответа
+    if data[6] == 0 or selected_button == data[6]:  # data[6] - кнопка верного ответа или без верного ответа
         if data[2] in user.username:  # data[2] - символ в нике
-            user_db.add_user(user.id, user.username, selected_button)
-            await callback.answer("Вы правильно ответили!")
+            user_db.add_info(user.id, user.username, selected_button)
+            await callback.answer("Вы проголосовали!")
         else:
-            await callback.answer("Вы правильно ответили, но ваш никнейм не содержит требуемый символ.")
+            await callback.answer("Вы проголосовали!")
     else:
-        await callback.answer("Вы ответили неверно.")
+        await callback.answer("Вы проголосовали!")
     
     last_vote_times[user_id] = datetime.now()
 
