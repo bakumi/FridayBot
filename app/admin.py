@@ -122,7 +122,7 @@ async def set_correct_button(callback: CallbackQuery, state: FSMContext):
         correct_button = -0
     else:
         correct_button = int(callback.data.split('_')[-1])
-    
+
     await state.update_data(correct_button=correct_button)
     data = await state.get_data()
     admin_db.add_info(data['photo'], data['description'], data['symbol'], data['button_1'], data['button_2'], data['button_3'], data['correct_button'])

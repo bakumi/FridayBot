@@ -1,9 +1,39 @@
-import sqlite3
+from sqlalchemy import create_engine, Column, Integer, String, LargeBinary
+from sqlalchemy.ext.declarative import declarative_base
 from aiogram.fsm.state import State, StatesGroup
-from app.abstract_db import AbstractDB
+from sqlalchemy.orm import sessionmaker
 
 
-#################### sqlite3 admin database ####################
+
+Base = declarative_base()
+
+
+
+#################### SQLAlchemy models ####################
+
+class AdminTable(Base):
+    __tablename__ = 'admin_table'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    photo = Column(LargeBinary)
+    description = Column(String)
+    symbol = Column(String)
+    button_1 = Column(String)
+    button_2 = Column(String)
+    button_3 = Column(String)
+    correct_button = Column(Integer)
+
+class UserTable(Base):
+    __tablename__ = 'user_table'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer)
+    username = Column(String)
+    correct_button = Column(Integer)
+
+#################### SQLAlchemy models ####################
+
+
+
+#################### SQLAlchemy admin database ####################
 
 class AddInfo(StatesGroup):
     new_post = State()
@@ -19,55 +49,50 @@ class AddInfo(StatesGroup):
     edit_button_2 = State()
     edit_button_3 = State()
     edit_symbol = State()
-        
 
-class SQLite3_Admindb(AbstractDB):
-    def __init__(self) -> None:
-        self.dp = sqlite3.connect("admin_db.db")
-        self.cur = self.dp.cursor()
-        self.cur.execute('''CREATE TABLE IF NOT EXISTS admin_table(
-                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         photo BLOB,
-                         description TEXT,
-                         symbol TEXT)''')
-        self.dp.commit()
-        self.add_missing_columns()
-
-
-    def add_missing_columns(self):
-        existing_columns = [row[1] for row in self.cur.execute("PRAGMA table_info(admin_table)")]
-        columns_to_add = {
-            "button_1": "TEXT",
-            "button_2": "TEXT",
-            "button_3": "TEXT",
-            "correct_button": "INTEGER DEFAULT 0"
-        }
-        for column, column_type in columns_to_add.items():
-            if column not in existing_columns:
-                self.cur.execute(f"ALTER TABLE admin_table ADD COLUMN {column} {column_type}")
-        self.dp.commit()
-
+class SQLAlchemy_Admindb:
+    def __init__(self, database_url='sqlite:///admin_db.db'):
+        self.engine = create_engine(database_url)
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
 
     def add_info(self, photo, description, symbol, button_1, button_2, button_3, correct_button):
-        self.cur.execute("""INSERT INTO admin_table (photo, description, symbol, button_1, button_2, button_3, correct_button)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)""", (photo, description, symbol, button_1, button_2, button_3, correct_button))
-        self.dp.commit()
-
+        photo_binary = photo.encode() 
+        new_entry = AdminTable(
+            photo=photo_binary,
+            description=description,
+            symbol=symbol,
+            button_1=button_1,
+            button_2=button_2,
+            button_3=button_3,
+            correct_button=correct_button
+        )
+        session = self.Session()
+        session.add(new_entry)
+        session.commit()
+        session.close()
 
     def get_info(self):
-        self.cur.execute("""SELECT photo, description, symbol, button_1, button_2, button_3, correct_button FROM admin_table ORDER BY id DESC LIMIT 1""")
-        return self.cur.fetchone()
-
+        session = self.Session()
+        entry = session.query(AdminTable).order_by(AdminTable.id.desc()).first()
+        session.close()
+        if entry:
+            return entry.photo, entry.description, entry.symbol, entry.button_1, entry.button_2, entry.button_3, entry.correct_button
+        return None
 
     def update_info(self, column, value):
-        self.cur.execute(f"UPDATE admin_table SET {column} = ? WHERE id = (SELECT MAX(id) FROM admin_table)", (value,))
-        self.dp.commit()
+        session = self.Session()
+        latest_entry = session.query(AdminTable).order_by(AdminTable.id.desc()).first()
+        if latest_entry:
+            if column == 'photo':
+                value = value.encode()
+            setattr(latest_entry, column, value)
+            session.commit()
+        session.close()
 
-
-admin_db = SQLite3_Admindb()
+admin_db = SQLAlchemy_Admindb()
 
 saved_post_data = None
-
 
 def save_post_data(data):
     global saved_post_data
@@ -76,62 +101,41 @@ def save_post_data(data):
 def get_saved_post_data():
     return admin_db.get_info()
 
-#################### sqlite3 admin database ####################
+#################### SQLAlchemy admin database ####################
 
 
 
-#################### sqlite3 users database ####################
+#################### SQLAlchemy user database ####################
 
-class SQLite3_Userdb(AbstractDB):
-    def __init__(self) -> None:
-        self.dp = sqlite3.connect("user_db.db")
-        self.cur = self.dp.cursor()
-        self.cur.execute('''CREATE TABLE IF NOT EXISTS user_table(
-                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         user_id INTEGER,
-                         username TEXT)''')
-        self.dp.commit()
-        self.add_missing_columns()
-
-    def add_missing_columns(self):
-        existing_columns = [row[1] for row in self.cur.execute("PRAGMA table_info(user_table)")]
-        if 'correct_button' not in existing_columns:
-            self.cur.execute("ALTER TABLE user_table ADD COLUMN correct_button INTEGER")
-        self.dp.commit()
-
+class SQLAlchemy_Userdb:
+    def __init__(self, database_url='sqlite:///user_db.db'):
+        self.engine = create_engine(database_url)
+        Base.metadata.create_all(self.engine, tables=[UserTable.__table__])
+        self.Session = sessionmaker(bind=self.engine)
+        
     def add_info(self, user_id, username, correct_button):
-        self.cur.execute("""INSERT INTO user_table (user_id, username, correct_button)
-                            VALUES (?, ?, ?)""", (user_id, username, correct_button))
-        self.dp.commit()
+        session = self.Session()
+        new_entry = UserTable(user_id=user_id, username=username, correct_button=correct_button)
+        session.add(new_entry)
+        session.commit()
+        session.close()
 
     def get_info(self):
-        self.cur.execute("""SELECT user_id, username, correct_button FROM user_table ORDER BY id DESC LIMIT 1""")
-        return self.cur.fetchone()
+        session = self.Session()
+        entry = session.query(UserTable).order_by(UserTable.id.desc()).first()
+        session.close()
+        if entry:
+            return entry.user_id, entry.username, entry.correct_button
+        return None
 
     def update_info(self, column, value):
-        self.cur.execute(f"UPDATE user_table SET {column} = ? WHERE id = (SELECT MAX(id) FROM user_table)", (value,))
-        self.dp.commit()
+        session = self.Session()
+        latest_entry = session.query(UserTable).order_by(UserTable.id.desc()).first()
+        if latest_entry:
+            setattr(latest_entry, column, value)
+            session.commit()
+        session.close()
 
+user_db = SQLAlchemy_Userdb()
 
-user_db = SQLite3_Userdb()
-
-
-#################### sqlite3 users database ####################
-
-
-
-#################### Пример ####################
-
-class MySQL_Admindb(AbstractDB):
-    pass
-
-# admin_db = MySQL_Admindb() # поменять БД (пример)
-
-
-
-class MySQ_Userdb(AbstractDB):
-    pass
-
-# user_db = MySQL_Userdb() # поменять БД (пример)
-
-#################### Пример ####################
+#################### SQLAlchemy user database ####################
