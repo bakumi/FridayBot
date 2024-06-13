@@ -120,13 +120,12 @@ user_db = SQLite3_Userdb()
 
 
 
-
 #################### Пример ####################
 
 class MySQL_Admindb(AbstractDB):
     pass
 
-# admin_db = MySQL_Admindb() # перейти БД (пример)
+# admin_db = MySQL_Admindb() # поменять БД (пример)
 
 
 
